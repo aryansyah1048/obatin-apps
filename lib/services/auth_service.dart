@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import '../constant/constant.dart';
 
 class AuthService {
-  static Future<bool> submitDonatur({
+  static Future<Map<String, dynamic>?> submitDonatur({
     required String nama,
     required String telepon,
     required String email,
@@ -30,14 +30,15 @@ class AuthService {
           .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return true;
+        final responseData = jsonDecode(response.body);
+        return responseData; // kembalikan data donatur, termasuk email
       } else {
         print('Gagal submit: ${response.statusCode} - ${response.body}');
-        return false;
+        return null;
       }
     } catch (e) {
       print('Error saat submit: $e');
-      return false;
+      return null;
     }
   }
 }

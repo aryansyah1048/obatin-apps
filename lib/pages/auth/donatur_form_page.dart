@@ -2,8 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io' show File, Platform;
+import 'dart:io' show File;
 import '../../services/auth_service.dart';
+import './otp_page.dart';
 
 class DonaturFormPage extends StatefulWidget {
   const DonaturFormPage({super.key});
@@ -51,7 +52,7 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Oval header
+          // Header
           ClipPath(
             clipper: OvalClipper(),
             child: Container(
@@ -137,8 +138,7 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
                                     : () async {
                                         if (_formKey.currentState!.validate()) {
                                           setState(() => isLoading = true);
-
-                                          bool success =
+                                          final result =
                                               await AuthService.submitDonatur(
                                                 nama: _namaController.text,
                                                 telepon:
@@ -155,7 +155,8 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
                                           if (!mounted) return;
                                           setState(() => isLoading = false);
 
-                                          if (success) {
+                                          if (result != null &&
+                                              result['success'] == true) {
                                             ScaffoldMessenger.of(
                                               context,
                                             ).showSnackBar(
@@ -165,7 +166,19 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
                                                 ),
                                               ),
                                             );
-                                            Navigator.pop(context, true);
+
+                                            // Ambil email dari respons untuk halaman OTP
+                                            final email =
+                                                result['data']['email'];
+
+                                            // Pindah ke halaman OTP
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    OtpPage(email: email),
+                                              ),
+                                            );
                                           } else {
                                             ScaffoldMessenger.of(
                                               context,
@@ -271,7 +284,6 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
   }
 }
 
-// Custom Clipper
 class OvalClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
