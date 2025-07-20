@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-
+import '../../services/auth_service.dart';
 
 class DonaturFormPage extends StatefulWidget {
   const DonaturFormPage({super.key});
@@ -61,7 +61,8 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
               child: Card(
                 elevation: 5,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
+                  borderRadius: BorderRadius.circular(20),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Form(
@@ -103,7 +104,9 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
                                 ),
                                 child: const Text('Kembali'),
                               ),
@@ -111,9 +114,28 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: () {
+                                onPressed: () async {
                                   if (_formKey.currentState!.validate()) {
-                                    // TODO: Simpan data donatur
+                                    final response = await AuthService()
+                                        .submitDonatur(
+                                          nama: _namaController.text,
+                                          telepon: _teleponController.text,
+                                          email: _emailController.text,
+                                          ktpImage: _ktpImage,
+                                        );
+
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(response['message']),
+                                        backgroundColor: response['success']
+                                            ? Colors.green
+                                            : Colors.red,
+                                      ),
+                                    );
+
+                                    if (response['success']) {
+                                      Navigator.pop(context); // atau reset form
+                                    }
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(
@@ -121,7 +143,9 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
                                 ),
                                 child: const Text(
                                   'Submit',
@@ -130,7 +154,7 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
                               ),
                             ),
                           ],
-                        )
+                        ),
                       ],
                     ),
                   ),
@@ -164,9 +188,7 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
           borderSide: BorderSide(color: borderColor, width: 2),
           borderRadius: BorderRadius.circular(12),
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -206,7 +228,11 @@ class OvalClipper extends CustomClipper<Path> {
     Path path = Path();
     path.lineTo(0, size.height * 0.7);
     path.quadraticBezierTo(
-        size.width / 2, size.height, size.width, size.height * 0.7);
+      size.width / 2,
+      size.height,
+      size.width,
+      size.height * 0.7,
+    );
     path.lineTo(size.width, 0);
     path.close();
     return path;
