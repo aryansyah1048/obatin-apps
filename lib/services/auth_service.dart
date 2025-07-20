@@ -41,4 +41,33 @@ class AuthService {
       return null;
     }
   }
+
+  static Future<Map<String, dynamic>?> verifyOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final url = Uri.parse('$baseURL/api/verify-otp');
+
+    final body = jsonEncode({'email': email, 'otp': otp});
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print(
+          'Verifikasi OTP gagal: ${response.statusCode} - ${response.body}',
+        );
+        return null;
+      }
+    } catch (e) {
+      print('Error saat verifikasi OTP: $e');
+      return null;
+    }
+  }
 }

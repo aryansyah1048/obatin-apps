@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../services/auth_service.dart'; // pastikan sudah ada verifyOtp
+import 'login_page.dart';
 
 class OtpPage extends StatefulWidget {
   final String email;
@@ -14,15 +16,43 @@ class _OtpPageState extends State<OtpPage> {
   bool _isLoading = false;
 
   Future<void> _verifyOtp() async {
+    if (_otpController.text.length != 6) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Masukkan 6 digit OTP')));
+      return;
+    }
+
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2)); // simulasi verifikasi
+
+    final result = await AuthService.verifyOtp(
+      email: widget.email,
+      otp: _otpController.text,
+    );
+
     setState(() => _isLoading = false);
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('OTP berhasil diverifikasi!')));
+    if (!mounted) return;
 
-    // TODO: Arahkan ke halaman selanjutnya
+    if (result != null && result['success'] == true) {
+      // OTP berhasil diverifikasi, arahkan ke login
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Verifikasi berhasil! Silakan login dengan username dan password yang dikirim ke email.',
+          ),
+        ),
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('OTP tidak valid atau sudah kadaluarsa')),
+      );
+    }
   }
 
   @override
