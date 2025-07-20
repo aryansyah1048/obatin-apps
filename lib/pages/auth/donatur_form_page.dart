@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
-
+import 'dart:io' show File, Platform;
+import '../../services/auth_service.dart';
 
 class DonaturFormPage extends StatefulWidget {
   const DonaturFormPage({super.key});
@@ -15,17 +17,31 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
   final _namaController = TextEditingController();
   final _teleponController = TextEditingController();
   final _emailController = TextEditingController();
-  File? _ktpImage;
+
+  File? _ktpImageFile; // untuk Android/iOS
+  Uint8List? _ktpBytes; // untuk Web
+
+  bool isLoading = false;
 
   final Color primaryColor = const Color(0xFF3E54C5);
   final Color borderColor = Colors.purple;
 
   Future<void> _pickImage() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
-      setState(() {
-        _ktpImage = File(picked.path);
-      });
+      if (kIsWeb) {
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _ktpBytes = bytes;
+          _ktpImageFile = null;
+        });
+      } else {
+        setState(() {
+          _ktpImageFile = File(picked.path);
+          _ktpBytes = null;
+        });
+      }
     }
   }
 
@@ -61,7 +77,8 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
               child: Card(
                 elevation: 5,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
+                  borderRadius: BorderRadius.circular(20),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Form(
@@ -95,15 +112,19 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
                           children: [
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                },
+                                onPressed: isLoading
+                                    ? null
+                                    : () {
+                                        Navigator.pop(context);
+                                      },
                                 style: OutlinedButton.styleFrom(
                                   side: BorderSide(color: borderColor),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
                                 ),
                                 child: const Text('Kembali'),
                               ),
@@ -111,26 +132,79 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: () {
-                                  if (_formKey.currentState!.validate()) {
-                                    // TODO: Simpan data donatur
-                                  }
-                                },
+                                onPressed: isLoading
+                                    ? null
+                                    : () async {
+                                        if (_formKey.currentState!.validate()) {
+                                          setState(() => isLoading = true);
+
+                                          bool success =
+                                              await AuthService.submitDonatur(
+                                                nama: _namaController.text,
+                                                telepon:
+                                                    _teleponController.text,
+                                                email: _emailController.text,
+                                                ktpBytes:
+                                                    _ktpBytes ??
+                                                    (_ktpImageFile != null
+                                                        ? await _ktpImageFile!
+                                                              .readAsBytes()
+                                                        : null),
+                                              );
+
+                                          if (!mounted) return;
+                                          setState(() => isLoading = false);
+
+                                          if (success) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Donatur berhasil disimpan!',
+                                                ),
+                                              ),
+                                            );
+                                            Navigator.pop(context, true);
+                                          } else {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Gagal menyimpan donatur.',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: primaryColor,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
                                 ),
-                                child: const Text(
-                                  'Submit',
-                                  style: TextStyle(color: Colors.white),
-                                ),
+                                child: isLoading
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Submit',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
                               ),
                             ),
                           ],
-                        )
+                        ),
                       ],
                     ),
                   ),
@@ -164,9 +238,7 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
           borderSide: BorderSide(color: borderColor, width: 2),
           borderRadius: BorderRadius.circular(12),
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -187,7 +259,7 @@ class _DonaturFormPageState extends State<DonaturFormPage> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                _ktpImage != null
+                _ktpBytes != null || _ktpImageFile != null
                     ? 'KTP Terpilih'
                     : 'Upload Foto KTP (klik di sini)',
               ),
@@ -206,7 +278,11 @@ class OvalClipper extends CustomClipper<Path> {
     Path path = Path();
     path.lineTo(0, size.height * 0.7);
     path.quadraticBezierTo(
-        size.width / 2, size.height, size.width, size.height * 0.7);
+      size.width / 2,
+      size.height,
+      size.width,
+      size.height * 0.7,
+    );
     path.lineTo(size.width, 0);
     path.close();
     return path;
